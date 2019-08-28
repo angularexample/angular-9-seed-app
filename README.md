@@ -22,13 +22,10 @@ Full source code available at [https://github.com/angularexample/angular-9-seed-
 * [Software Libraries Used](#software-libraries-used)
 * [Angular Best Practices Included](#angular-best-practices-included)
   * [Set Change Detection As Default](#set-change-detection-as-default)
-  * [Services - ProvidedIn VS Providers](#services---providedin-vs-providers)
-    * [Why Not To Use ProvidedIn](#why-not-to-use-providedin)
+  * [All Services Use ProvidedIn](#all-services-use-providedin)
+  * [Each Service Has A Service Module](#each-service-has-a-service-module)
+    * [Import Services As A Module At The Dependant Module Level](#import-services-as-a-module-at-the-dependant-module-level)
     * [Why Not To Import Services At App Level](#why-not-to-import-services-at-app-level)
-    * [It Is OK To Provide More Than Once](#it-is-ok-to-provide-more-than-once)
-    * [Why Inject Services At The Dependant Class Level](#why-inject-services-at-the-dependant-class-level)
-  * [Use A Service Module](#use-a-service-module)
-    * [If You Want To Use providedIn Still Use A Service Module](#if-you-want-to-use-providedin-still-use-a-service-module)
   * [Set A Prefix For Components](#set-a-prefix-for-components)
     * [Use The Unique Prefix In Class Names](#use-the-unique-prefix-in-class-names)
       * [Quickly Recognize All Your Custom Objects](#quickly-recognize-all-your-custom-objects)
@@ -158,7 +155,8 @@ In this case it will still work.
 Angular Best Practices:
 
   * [Set Change Detection As Default](#set-change-detection-as-default)
-  * [Services - ProvidedIn VS Providers](#services---providedin-vs-providers)
+  * [All Services Use ProvidedIn](#all-services-use-providedin)
+  * [Each Service Has A Service Module](#each-service-has-a-service-module)
   * [Set A Prefix For Components](#set-a-prefix-for-components)
   * [Set Styles To Use SCSS](#set-styles-to-use-scss)
   * [Set Style Paths To Avoid Relative Paths in CSS](#set-style-paths-to-avoid-relative-paths-in-css)
@@ -180,7 +178,7 @@ This is done by adding a line to the **schematics** section of **angular.json**.
       },
 ```
 
-### Services - ProvidedIn VS Providers
+### All Services Use ProvidedIn
 
 There are three different ways to inject a service.
 
@@ -194,67 +192,36 @@ Instead you name the module of the dependent component in the service.
 In most cases you see it done by naming "root", which is the AppComponent.
 
 The intended advantage of ``providedIn`` is that Angular has tree shaking, which will only bundle a service if it gets used.
-But if you use my recommended design, the service is always injected only by the class that requires it.
-So the tree shaking is already done. 
 
-#### Why Not To Use ProvidedIn
+### Each Service Has A Service Module
 
-The ``providedIn`` technique is best used with ``providedIn: root``.
+Each service has its own module.
 
-You can instead name the module that requires the service,
-by using ``providedIn: MyComponentModule``. 
+The reason is to include all of the dependencies required by that service.
 
-But this essentially forever binds that service the that module.
-This makes the service not portable and not reusable. It also prevents you from using the service in more than one module.
+Also, some services require some tricky binding to other services. These must be done in a module file.
 
-When you use ``providedIn: root``, you are essentially doing the same thing as using the
-``providers`` of the app module.
+The advantage of having all of the dependencies in the service module,
+means that you don't need to ever import anything else.
 
-The only difference will be that tree shaking is done for the ``providedIn``. 
+For example, you don't need to add anything to the app module.
 
-There are some other issues with using ``providedIn``. Under certain circumstances,
-you can create circular dependencies, or hidden dependencies.
-These can become more of an issue with large scale apps,
-especially when you have many different developers, each doing their own designs. 
+Just import the service module into the module of the component or service,
+in which you will use the service.
 
-#### Why Not To Import Services At App Level
+For example, if you have a component that needs the data service,
+import the data service module ``XxxDataModule``, into the module for your component.
 
-Whether you use ``providedIn`` or ``providers``,
-I recommend you do **not** import all your services at the **app** level,
-which is contrary to the way most documentation tells you.
+#### Import Services As A Module At The Dependant Module Level
 
-I recommend importing a service at the module level of the **dependent** class.
+I recommend creating a service module for each service, that contains all of the
+dependencies for the service. Then import the service module,
+at the module level of the **dependent** class.
 
-The best reason is that the dependencies are clearly documented in the code itself.
+There are two reasons:
 
-If you have used ``providedIn: root`` or ``providers`` in the app module,
-and the dependent class is later deleted,
-you may still have services named in your code that are completely unnecessary.
-
-Although the tree shaking aspect of ``providedIn`` is intended to help with the bundling,
-it still does not keep your source code free of unused services.
-
-All the unused services can be littering up a large project,
-taking up space in your source code control,
-and requiring the resources of unit tests and coverage.
- 
-##### It Is OK To Provide More Than Once
-
-You might have multiple components or services that require the same service.
-In the case of a data access service, for example,
-there will likely be multiple components that need data access.
-
-But other services will have a more limited use.
-For example, a search service, which might be required by a search results component.
-
-Using my recommended architecture,
-you import the same service using the ``providers`` in the module for each dependent class.
-
-Angular will not inject the same service if it already exists.
-So even if you have the same service in the ``providers`` at the module level,
-it will result in a singleton service, that has full application scope.
-
-#### Why Inject Services At The Dependant Class Level
+1. You will always insure that all dependencies are included.
+2. The service you use, and where, will be documented in the consuming module.
 
 Why is this better than injecting the service at the app level?
 
@@ -264,62 +231,62 @@ and especially when you need to delete components in one app, or copy components
 If you are deleting components or copying components,
 you will need to also keep track of their required services.
 
-Every time you remove or add a compenent that has a required service,
+Every time you remove or add a component that has a required service,
 you will need to also edit the app module.
 
-On the other hand, if you use my recommended design,
-the ``providers`` of the dependent class module,
+On the other hand, if you use this recommended design,
 you don't ever touch the app module.
-
-This makes refactoring a large scale app much easier, and much safer.
-
-There is also **no down side**.
-Since the only other supposed advantage of ``providedIn`` is tree shaking,
-and the tree shaking is already accomplished by keeping the service
-injection at the lowest dependent level.
-
-Your source code will not end with orphan services.
-
-Your bundled app will not have unused services.
 
 Your app module will be leaner and cleaner,
 and free from changes by multiple developers.
 
-### Use A Service Module
+This makes refactoring a large scale app much easier, and much safer.
 
-In the previous sections, I have described why **not** to use ``providedIn``.
-I have also described why **not** to inject services at the ``appModule`` level.
+#### Why Not To Import Services At App Level
 
-So the recommended way is to use the ``providers`` array of the dependent module.
+Whether you use ``providedIn`` or ``providers``,
+I recommend you do **not** import all your services at the **app** level,
+which is contrary to the way most documentation tells you.
 
-But... this is not actually the best way.
+If you have instead imported the dependencies of the service at the app module,
+you later not be sure of what items in the app module are actually required,
+and which dependencies go with which services.
 
-If you look at the way services are added to this app,
-you will see that each service has its own dedicated module.
+If you have used ``providedIn: root`` or ``providers`` in the app module,
+and the dependent class is later deleted,
+you may still have stuff in your app module that are no longer required.
 
-Using this technique, to add a service to any dependent module,
-just import the service module into the dependent module.
+Or if are adding a reusable service to another app,
+or moving a service from one app to another,
+you may risk a failure caused by a missing dependency.
 
-I generally don't ever use the ``providers`` array in the component module.
+As an app grows and becomes larger and more complicated,
+and when you have multiple developers working on the same project,
+the risk of these mistakes becomes much greater.
 
-This is because the service is actually provided by the ``providers`` array in the **service module**.
+It can be sometimes extremely difficult to find out why things are breaking,
+especially since some of these services require some special bindings.
 
-This makes it easier to assemble large applications.
+And, in many cases, things will work fine for a while (by mistake),
+because the actual dependencies are imported somewhere else (by coincidence),
+and when that other module gets changed or deleted, all of a sudden you get
+a failure in a another part of the app. 
+  
+Another problem is that you may also end up with a lot of things imported,
+that actually are not required. And in that case, you will never get an error.
+So your code becomes bloated with extra code and objects that are completely unnecessary.
 
-Just import the service module, and declare it in the ``imports`` array of the dependent module.
+Although the tree shaking aspect of ``providedIn`` is intended to help with the bundling,
+it still does not keep your source code free of unused services.
 
-Then import the service in the dependent class file,
-and instantiate the service in the constructor, as usual.
+In that case, the compiled bundle will be free of the unused services...
 
-#### If You Want To Use providedIn Still Use A Service Module
+But the services, and their dependencies, can still be in your source code.
 
-There are some cases where ``providedIn`` makes sense, but even on those cases, it may be better to use a dedicated service module.
-In this case, the ``providedIn`` should point to the service module.
-
-This helps to avoid circular references.
-
-So in either case, it is a good general rule to create a dedicated module for your service.
-
+All the unused services can be littering up a large project,
+taking up space in your source code control,
+and requiring the resources of unit tests and coverage.
+ 
 ### Set A Prefix For Components
 
 An Angular best practice is to use a unique prefix for the selector name of a component or directive.
@@ -511,6 +478,7 @@ The main styles file is ``src/assets/styles.scss``
 Another Angular best practice is to set variables to avoid relative paths for imports.
 
 ###### Wrong Way
+
 ```
 import {XxxHeaderModule} from '../../../modules/xxx-header/xxx-header.module'
 import {environment} from '../../../environments/environment'
@@ -646,7 +614,7 @@ Then declare it in the module's ``imports`` array.
   imports: [XxxAlertModule]
 ```
 
-The service module already has its own ``providers``, so you don't need to do that anywhere else.
+The service module uses ``providedIn``, so you don't need to add it to any ``providers``.
 
 Then import the service into your component or service as follows:
 
@@ -701,7 +669,7 @@ Then declare it in the module's ``imports`` array.
   imports: [XxxDataModule]
 ```
 
-The service module already has its own ``providers``, so you don't need to do that anywhere else.
+The service module uses ``providedIn``, so you don't need to add it to any ``providers``.
 
 Then import the service into your component or service as follows:
 
@@ -752,8 +720,6 @@ It uses the ```XxxLogService``` [Log Service](#log-service) to log the error.
 
 It uses the ```XxxAlertService``` [Alert Service](#alert-service) to display a pop-up message to the user. 
 
-It is recommended to inject this service into your app component.
-
 To use the error handler service, first import the service module into the app module as follows:
 
 ```
@@ -766,20 +732,7 @@ Then declare it in the module's ``imports`` array.
   imports: [XxxErrorHandlerModule]
 ```
 
-The service module already has its own ``providers``, so you don't need to do that anywhere else.
-
-Then import the service into the app component as follows:
-
-```
-import {XxxErrorHandlerService} from '@app/xxx-common';
-```
-
-Then instantiate the service in your constructor as follows:
-
-```
-  constructor(
-      private xxxErrorHandler: XxxErrorHandler
-```
+The service should not be imported or instantiated. All of that is already done in the service module.
 
 Nothing else is needed. The service will now work on its own.
 
@@ -806,7 +759,7 @@ Then declare it in the module's ``imports`` array.
   imports: [XxxLogModule]
 ```
 
-The service module already has its own ``providers``, so you don't need to do that anywhere else.
+The service module uses ``providedIn``, so you don't need to add it to any ``providers``.
 
 Then import the service into your component or service as follows:
 
@@ -851,9 +804,9 @@ Then declare it in the module's ``imports`` array.
   imports: [XxxMessageModule]
 ```
 
-The service module already has its own ``providers``, so you don't need to do that anywhere else.
+The service module uses ``providedIn``, so you don't need to add it to any ``providers``.
 
-Then import the service into your compnent or service file as follows:
+Then import the service into your component or service file as follows:
 
 ```
 import {XxxMessageService} from '@app/xxx-common';
@@ -869,13 +822,16 @@ Then instantiate the service in your constructor as follows:
 ##### How To Use The Message Service
 
 To use the message service we first create a message object with a unique key:
+
 ```
 const message=new XxxMessage('searchTextChanged');
 ```
+
 The best practice is use a string key that is meaningful.
 In this case we want to indicate that the search text has changed.
 
 The next step is to send the message:
+
 ```
 xxxMessageService.broadcast(message);
 ```
@@ -884,6 +840,7 @@ After the message is broadcast, one or more subscribers will instantly receive t
 This is generally used to notify another component that something has happened.
 
 Here is the code to subscribe to the message.
+
 ```
     this.subscriptionSearchTextChange = this.xxxMessageService.subscribe('searchTextChange', () => {
       this.onSearchTextChange();
